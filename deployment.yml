@@ -1,0 +1,49 @@
+---
+- name: Build and Deploy docker container
+  hosts: dockerserver
+  remote_user: ubuntu 
+
+  tasks:
+    - name: Check if Docker container exists
+      community.docker.docker_container_info:
+        name: mico-container
+      register: docker_container_info
+
+    - name: Stop Docker container
+      docker_container:
+        name: mico-container
+        state: stopped
+      when: docker_container_info.containers is defined and docker_container_info.containers | length > 0
+
+    - name: Deleting container
+      docker_container:
+        name: mico-container
+        image: mico:latest
+        state: absent
+
+    - name: Check if Docker image exists
+      community.docker.docker_image_info:
+        name: mico:latest
+      register: docker_image_facts
+
+    - name: Remove Docker image if it exists
+      docker_image:
+        name: mico:latest
+        state: absent
+      when: docker_image_facts.images | length > 0
+
+    - name: Build docker image
+      docker_image:
+        name: mico:latest
+        source: build
+        build:
+          path: ~/project/ansible-jenkins-pipeline/
+        state: present
+
+    - name: Create container
+      docker_container:
+        name: mico-container
+        image: mico:latest
+        ports:
+          - "80:80"
+        state: started
